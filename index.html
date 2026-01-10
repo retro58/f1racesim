@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Grand Prix Simulator v2.7</title>
+    <title>Grand Prix Simulator v2.8</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -386,31 +386,34 @@ let TEAMS = [
     { name: "Alpine", color: "#0090ff", perf: 88, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "Williams", color: "#005aff", perf: 85, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "RB", color: "#131370", perf: 86, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Sauber", color: "#52e252", perf: 82, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "Audi", color: "#c94b57", perf: 82, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "Haas", color: "#b6babd", perf: 84, pts: 0, wins: 0, podiums: 0, dnfs: 0 }
+    { name: "Cadillac", color: "#f7ff57", perf: 80, pts: 0, wins: 0, podiums: 0, dnfs: 0 }
 ];
 
 let DRIVERS = [
-    { name: "M. Verstappen", team: 0, rate: 99, cons: 9, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "S. Perez", team: 0, rate: 88, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "C. Leclerc", team: 1, rate: 96, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "L. Hamilton", team: 1, rate: 95, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "G. Russell", team: 2, rate: 94, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "M. Verstappen", team: 0, rate: 95, cons: 9, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "I. Hadjar", team: 0, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "C. Leclerc", team: 1, rate: 90, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "L. Hamilton", team: 1, rate: 87, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "G. Russell", team: 2, rate: 94, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "K. Antonelli", team: 2, rate: 85, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "L. Norris", team: 3, rate: 97, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "O. Piastri", team: 3, rate: 95, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "F. Alonso", team: 4, rate: 93, cons: 9, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "L. Stroll", team: 4, rate: 82, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "P. Gasly", team: 5, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "J. Doohan", team: 5, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "F. Colapinto", team: 5, rate: 78, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "A. Albon", team: 6, rate: 89, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "C. Sainz", team: 6, rate: 92, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Y. Tsunoda", team: 7, rate: 86, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "A. Lindblad", team: 7, rate: 75, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "L. Lawson", team: 7, rate: 84, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "N. Hulkenberg", team: 8, rate: 86, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "G. Bortoleto", team: 8, rate: 81, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "E. Ocon", team: 9, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
     { name: "O. Bearman", team: 9, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 }
+    { name: "V. Bottas", team: 10, rate: 85, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "S. Perez", team: 10, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 }
 ];
 
 let ChampState = { active: false, round: 1, maxRounds: 10, saved: false };
