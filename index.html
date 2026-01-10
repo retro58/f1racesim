@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grand Prix Simulator v2.7</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-color: #1e1e24;
+            --text-color: #e0e0e0;
+            --accent-color: #e10600;
+            --quali-color: #9b4dca;
+            --sprint-color: #ff9800;
+            --champ-color: #d4af37;
+            --single-color: #007bff;
+            --border-color: #333;
+            --success-color: #28a745;
+            --warn-color: #ff5722;
+            --info-color: #17a2b8;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-bottom: 5px; color: #fff; text-transform: uppercase; letter-spacing: 2px; text-align: center; }
+        .subtitle { font-size: 0.9em; color: #777; margin-bottom: 20px; text-align: center; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 320px 1fr 320px;
+            gap: 20px;
+            width: 100%;
+            max-width: 1600px;
+            height: 85vh;
+        }
+
+        .panel {
+            background: var(--panel-color);
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex; flex-direction: column;
+        }
+
+        @media (max-width: 1024px) {
+            .container { grid-template-columns: 1fr; height: auto; display: flex; flex-direction: column; }
+            .panel { min-height: 400px; max-height: 600px; }
+            body { padding: 10px; }
+        }
+
+        .section-title { font-size: 0.85em; color: #888; text-transform: uppercase; margin: 15px 0 5px 0; border-bottom: 1px solid #444; padding-bottom: 5px;}
+        .setup-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        
+        label { display: block; font-size: 0.8em; color: #aaa; margin-bottom: 3px; }
+        input, select { 
+            width: 100%; padding: 10px; background: #2b2b36; border: 1px solid #444; color: white; 
+            border-radius: 4px; box-sizing: border-box; font-family: inherit;
+        }
+        
+        .checkbox-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: #25252b; padding: 8px; border-radius: 4px;}
+        .checkbox-row input { width: auto; margin: 0; }
+        .checkbox-row label { margin: 0; color: #fff; cursor: pointer; }
+
+        button {
+            color: white; border: none; padding: 12px; margin-bottom: 5px;
+            cursor: pointer; font-weight: bold; width: 100%; border-radius: 4px; text-transform: uppercase;
+            transition: all 0.2s; font-size: 0.9em; touch-action: manipulation;
+        }
+        button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        button:disabled { background: #333 !important; cursor: not-allowed; opacity: 0.5; transform: none; color: #777; }
+
+        .btn-main { background: #444; }
+        .btn-adv { background: var(--info-color); color: #fff; }
+        .btn-quali { background: var(--quali-color); }
+        .btn-sprint { background: var(--sprint-color); color: #000; }
+        .btn-race { background: var(--accent-color); }
+        .btn-champ { background: var(--champ-color); color: #000; }
+        .btn-single { background: var(--single-color); }
+        .btn-next { background: var(--success-color); animation: pulse 2s infinite; }
+        .btn-skip { background: var(--warn-color); color: #000; display: none; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+
+        .standings-tabs { display: flex; gap: 2px; margin-bottom: 10px; background: #333; padding: 2px; border-radius: 4px; }
+        .tab-btn { flex: 1; padding: 10px; font-size: 0.75em; background: transparent; border: none; color: #aaa; cursor: pointer; border-radius: 3px; margin: 0;}
+        .tab-btn:hover { background: rgba(255,255,255,0.05); }
+        .tab-btn.active { background: #555; color: #fff; font-weight: bold; }
+
+        /* GRID LAYOUTS FOR TABLE */
+        .row-standard {
+            display: grid;
+            grid-template-columns: 30px 4px 1fr 60px 80px;
+            gap: 10px; padding: 8px; border-bottom: 1px solid #2a2a2a;
+            align-items: center; font-size: 0.9em;
+        }
+        
+        .row-stats {
+            display: grid;
+            grid-template-columns: 30px 4px 1fr 40px 40px 40px 50px; /* Pos Col Name Win Pod DNF Pts */
+            gap: 8px; padding: 8px; border-bottom: 1px solid #2a2a2a;
+            align-items: center; font-size: 0.85em;
+        }
+
+        .header-row {
+            font-size: 0.75em; color: #888; text-transform: uppercase; font-weight: bold;
+            border-bottom: 1px solid #444;
+        }
+
+        .driver-row:hover { background: rgba(255,255,255,0.03); }
+        .driver-row.dnf { opacity: 0.5; text-decoration: line-through; color: #ff4444; }
+        .driver-row.winner { background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent); border-left: 2px solid gold; }
+        
+        .team-strip { height: 100%; border-radius: 2px; }
+        .data-cell { text-align: right; font-family: monospace; color: #aaa; }
+        .info-cell { text-align: center; font-size: 0.9em; font-weight: bold; }
+        
+        .tire-s { color: #ff4444; } .tire-m { color: #ffe600; } .tire-h { color: #fff; }
+        .stat-win { color: var(--success-color); font-weight: bold; }
+        .stat-pod { color: var(--champ-color); }
+        .stat-dnf { color: #ff4444; }
+
+        #event-log { font-family: 'Consolas', monospace; font-size: 0.85em; flex-grow: 1; overflow-y: auto; scroll-behavior: smooth; }
+        .log-entry { margin-bottom: 4px; padding: 4px; border-bottom: 1px solid #2a2a2a; display: flex; gap: 10px; }
+        .log-lap { color: var(--accent-color); font-weight: bold; min-width: 40px; }
+        .log-msg { color: #ccc; line-height: 1.4; }
+        
+        .type-crash { border-left: 2px solid red; background: rgba(255,0,0,0.05); }
+        .type-pit { border-left: 2px solid yellow; }
+        .type-fast { border-left: 2px solid purple; color: #e0b0ff; }
+        .type-sys { border-left: 2px solid #555; color: #888; font-style: italic; }
+
+        #status-bar { 
+            width: 100%; background: #000; border: 1px solid #333; border-radius: 6px; 
+            padding: 10px 20px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+        }
+        #mode-tag { 
+            background: #333; color: white; padding: 3px 8px; border-radius: 4px; 
+            font-size: 0.75em; text-transform: uppercase; font-weight: bold; margin-right: 10px;
+        }
+        #progress-track { width: 100%; height: 6px; background: #333; margin-top: 15px; border-radius: 3px; overflow:hidden;}
+        #progress-bar { height: 100%; width: 0%; background: var(--accent-color); transition: width 1s linear; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 999;
+            display: none; justify-content: center; align-items: center;
+        }
+        .modal-box {
+            background: var(--panel-color); border-radius: 8px; border: 1px solid #444; 
+            display: flex; flex-direction: column; padding: 20px; 
+            width: 90%; max-width: 800px; 
+        }
+        .modal-small { max-width: 350px; text-align: center; }
+        .modal-scroll { overflow-y: auto; padding: 5px; max-height: 60vh; }
+        
+        .team-edit-card { background: #25252b; padding: 15px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #333; }
+        .team-edit-header { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #333; }
+        .driver-edit-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-top: 5px; padding-left: 15px; border-left: 2px solid #555; }
+
+        .adv-slider { width: 100%; margin: 5px 0; }
+        .adv-label { display: flex; justify-content: space-between; font-size: 0.8em; color: #aaa; margin-top: 10px;}
+
+        @media (max-width: 600px) {
+            .team-edit-header, .driver-edit-row { grid-template-columns: 1fr; gap: 5px; }
+            .setup-row { grid-template-columns: 1fr; }
+            h1 { font-size: 1.5em; }
+            #status-bar { flex-direction: column; text-align: center; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>F1 Strategy Simulator <span style="color:var(--accent-color)">2.7</span></h1>
+    <div class="subtitle">Complete Season Management & Race Simulation</div>
+
+    <!-- Status Bar -->
+    <div style="width: 100%; max-width: 1600px;">
+        <div id="status-bar">
+            <div>
+                <span id="mode-tag">IDLE</span>
+                <span id="status-msg">Welcome. Select a mode to begin.</span>
+            </div>
+            <div id="track-info" style="color:#888; font-size: 0.9em;">-</div>
+        </div>
+        <div id="progress-track"><div id="progress-bar"></div></div>
+    </div>
+    <br>
+
+    <div class="container">
+        <!-- LEFT: CONTROLS -->
+        <div class="panel">
+            <div style="display:flex; gap:5px; margin-bottom: 5px;">
+                <button class="btn-main" onclick="UI.openEditor()" style="flex:1">Manage Teams</button>
+                <button class="btn-adv" onclick="UI.openAdvanced()" style="flex:1">Advanced Settings</button>
+            </div>
+
+            <div class="section-title">Game Mode</div>
+            <div class="setup-row">
+                <button class="btn-champ" id="btn-mode-champ" onclick="Game.checkChampStart()">Start Season</button>
+                <button class="btn-single" id="btn-mode-single" onclick="Game.checkSingleStart()">Single Race</button>
+            </div>
+
+            <div class="section-title">Track Settings</div>
+            <label>Current Track (Editable)</label>
+            <input type="text" id="inp-track" value="Monza" style="color:var(--text-color);">
+            
+            <div class="setup-row">
+                <div>
+                    <label>Laps (Feature Race)</label>
+                    <input type="number" id="inp-laps" value="53">
+                </div>
+                <div>
+                    <label>Avg Time (s)</label>
+                    <input type="number" id="inp-time" value="82">
+                </div>
+            </div>
+            
+            <label>Safety Car Probability</label>
+            <select id="inp-sc" style="margin-bottom:10px;">
+                <option value="0.5">Low (Calm)</option>
+                <option value="1.0" selected>Normal</option>
+                <option value="2.5">High (Chaotic)</option>
+                <option value="5.0">Extreme (Mayhem)</option>
+            </select>
+
+            <div class="checkbox-row" onclick="Game.toggleSprintWeekend()">
+                <input type="checkbox" id="chk-sprint-weekend">
+                <label for="chk-sprint-weekend">Sprint Weekend (Add Sprint Race)</label>
+            </div>
+
+            <div class="section-title">Session Controls</div>
+            <button id="btn-quali" class="btn-quali" onclick="Game.runQualifying()" disabled>1. Qualifying</button>
+            <button id="btn-sprint" class="btn-sprint" onclick="Game.startSprint()" style="display:none;" disabled>2. Sprint Race</button>
+            <button id="btn-race" class="btn-race" onclick="Game.startRace()" disabled>3. Feature Race</button>
+            
+            <div style="display:flex; gap:5px; flex-direction:column;">
+                <div style="display:flex; gap:5px;">
+                    <button id="btn-pause" class="btn-main" onclick="Game.togglePause()" disabled style="flex:1;">Pause</button>
+                    <button id="btn-skip" class="btn-skip" onclick="Game.skipRace()" style="flex:1;">Quick Sim</button>
+                </div>
+                <button id="btn-next" class="btn-next" onclick="Game.nextRound()" style="display:none;">Next Round >></button>
+            </div>
+        </div>
+
+        <!-- CENTER: STANDINGS -->
+        <div class="panel">
+            <div class="standings-tabs">
+                <button class="tab-btn active" id="tab-race" onclick="UI.switchTab('race')">Session</button>
+                <button class="tab-btn" id="tab-season" onclick="UI.switchTab('season')">Drivers</button>
+                <button class="tab-btn" id="tab-const" onclick="UI.switchTab('constructors')">Constructors</button>
+            </div>
+
+            <div id="standings-header" class="header-row row-standard">
+                <!-- Injected via JS -->
+            </div>
+            <div id="standings-body">
+                <!-- JS Populated -->
+            </div>
+        </div>
+
+        <!-- RIGHT: LOGS -->
+        <div class="panel">
+            <div class="section-title" style="margin-top:0;">Race Control Radio</div>
+            <div id="event-log"></div>
+        </div>
+    </div>
+
+    <!-- EDITOR MODAL -->
+    <div id="modal-editor" class="modal-overlay">
+        <div class="modal-box">
+            <div style="padding-bottom:15px; border-bottom:1px solid #444; display:flex; justify-content:space-between;">
+                <h3 style="margin:0">Grid Editor</h3>
+                <button class="btn-success" onclick="Editor.addTeam()" style="width:auto; padding:5px 15px;">+ Add Team</button>
+            </div>
+            <div class="modal-scroll" id="editor-content"></div>
+            <div style="padding-top:15px; border-top:1px solid #444; text-align:right;">
+                <button class="btn-main" onclick="UI.closeModal('modal-editor')" style="width:100px;">Cancel</button>
+                <button class="btn-race" onclick="Editor.save()" style="width:150px;">Save Grid</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADVANCED OPTIONS MODAL -->
+    <div id="modal-advanced" class="modal-overlay">
+        <div class="modal-box modal-small">
+            <h3 style="margin-top:0">Advanced Simulation Config</h3>
+            
+            <div class="adv-label"><span>Driver Skill Weight</span><span id="val-skill">2.0</span></div>
+            <input type="range" class="adv-slider" min="0" max="5" step="0.1" value="2.0" oninput="Config.update('skill', this.value)">
+            
+            <div class="adv-label"><span>Car Performance Weight</span><span id="val-car">1.5</span></div>
+            <input type="range" class="adv-slider" min="0" max="5" step="0.1" value="1.5" oninput="Config.update('car', this.value)">
+
+            <div class="adv-label"><span>Chaos Factor (Variance)</span><span id="val-chaos">2.0</span></div>
+            <input type="range" class="adv-slider" min="0" max="5" step="0.1" value="2.0" oninput="Config.update('chaos', this.value)">
+
+            <div class="adv-label"><span>Tire Degradation Rate</span><span id="val-tire">0.08</span></div>
+            <input type="range" class="adv-slider" min="0" max="0.3" step="0.01" value="0.08" oninput="Config.update('tire', this.value)">
+
+            <div class="adv-label"><span>Global Crash Rate</span><span id="val-crash">0.05</span></div>
+            <input type="range" class="adv-slider" min="0" max="0.2" step="0.01" value="0.05" oninput="Config.update('crash', this.value)">
+
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-race" onclick="UI.closeModal('modal-advanced')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEASON SETUP MODAL -->
+    <div id="modal-season" class="modal-overlay">
+        <div class="modal-box modal-small">
+            <h3 style="margin-top:0">New Championship</h3>
+            <label>Number of Rounds</label>
+            <input type="number" id="season-rounds-input" value="24" min="1" max="99" style="margin-bottom:20px;">
+            <div style="display:flex; gap:10px;">
+                <button class="btn-main" onclick="UI.closeModal('modal-season')">Cancel</button>
+                <button class="btn-race" onclick="Game.initChampionship()">Start</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+/**
+ * F1 SIMULATOR CORE V2.7
+ * Features: Wins/Podiums/DNFs, Consistency Stat, Advanced Config
+ */
+
+// --- CONFIG & DATA ---
+const TRACK_CALENDAR = [
+    "Bahrain GP", "Saudi Arabian GP", "Australian GP", "Japanese GP", 
+    "Miami GP", "Monaco GP", "British GP", "Spa-Francorchamps", 
+    "Italian GP", "Singapore GP", "US GP", "Brazilian GP",
+    "Las Vegas GP", "Qatar GP", "Abu Dhabi GP", "Spanish GP",
+    "Canadian GP", "Austrian GP", "Hungarian GP", "Dutch GP"
+];
+
+const POINTS_FULL = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
+
+// Simulation Config
+const SimConfig = {
+    skillWeight: 2.0,
+    carWeight: 1.5,
+    chaosFactor: 2.0, // Variance base
+    tireWear: 0.08, // sec lost per lap age
+    crashRate: 0.05 // base chance
+};
+
+const Config = {
+    update: function(key, val) {
+        val = parseFloat(val);
+        switch(key) {
+            case 'skill': SimConfig.skillWeight = val; break;
+            case 'car': SimConfig.carWeight = val; break;
+            case 'chaos': SimConfig.chaosFactor = val; break;
+            case 'tire': SimConfig.tireWear = val; break;
+            case 'crash': SimConfig.crashRate = val; break;
+        }
+        document.getElementById(`val-${key}`).innerText = val;
+    }
+};
+
+// Master Data (Note: 'agg' replaced by 'cons' for Consistency)
+let TEAMS = [
+    { name: "Red Bull", color: "#0600ef", perf: 98, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "Ferrari", color: "#dc0000", perf: 96, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "Mercedes", color: "#00d2be", perf: 95, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "McLaren", color: "#ff8700", perf: 97, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "Aston Martin", color: "#006f62", perf: 92, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "Alpine", color: "#0090ff", perf: 88, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "Williams", color: "#005aff", perf: 85, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "RB", color: "#131370", perf: 86, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "Sauber", color: "#52e252", perf: 82, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "Haas", color: "#b6babd", perf: 84, pts: 0, wins: 0, podiums: 0, dnfs: 0 }
+];
+
+let DRIVERS = [
+    { name: "M. Verstappen", team: 0, rate: 99, cons: 9, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "S. Perez", team: 0, rate: 88, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "C. Leclerc", team: 1, rate: 96, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "L. Hamilton", team: 1, rate: 95, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "G. Russell", team: 2, rate: 94, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "K. Antonelli", team: 2, rate: 85, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "L. Norris", team: 3, rate: 97, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "O. Piastri", team: 3, rate: 95, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "F. Alonso", team: 4, rate: 93, cons: 9, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "L. Stroll", team: 4, rate: 82, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "P. Gasly", team: 5, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "J. Doohan", team: 5, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "A. Albon", team: 6, rate: 89, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "C. Sainz", team: 6, rate: 92, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "Y. Tsunoda", team: 7, rate: 86, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "L. Lawson", team: 7, rate: 84, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "N. Hulkenberg", team: 8, rate: 86, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "G. Bortoleto", team: 8, rate: 81, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "E. Ocon", team: 9, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
+    { name: "O. Bearman", team: 9, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 }
+];
+
+let ChampState = { active: false, round: 1, maxRounds: 10, saved: false };
+
+const State = {
+    mode: 'IDLE',
+    phase: 'PRE',
+    grid: [],
+    laps: 53,
+    currentLap: 0,
+    interval: null,
+    paused: false,
+    sessionBest: 9999,
+    hasSprint: false
+};
+
+const Game = {
+    
+    // --- MODE SWITCHING & INIT ---
+
+    checkChampStart: function() {
+        if(ChampState.active && ChampState.saved) {
+            if(confirm(`Resume Championship at Round ${ChampState.round}? Cancel to start a new season.`)) {
+                Game.resumeChampionship();
+            } else {
+                UI.openSeasonModal();
+            }
+        } else {
+            UI.openSeasonModal();
+        }
+    },
+
+    checkSingleStart: function() {
+        if(State.mode === 'CHAMP') {
+            ChampState.saved = true;
+            ChampState.active = true;
+            if(!confirm("Pause Championship to run a Single Race? Progress will be saved.")) return;
+        }
+        Game.initSingleRace();
+    },
+
+    initChampionship: function() {
+        let roundsInput = document.getElementById('season-rounds-input').value;
+        let rounds = parseInt(roundsInput);
+        if(isNaN(rounds) || rounds < 1) rounds = 10;
+
+        UI.closeModal('modal-season');
+
+        ChampState.active = true;
+        ChampState.round = 1;
+        ChampState.maxRounds = rounds;
+        ChampState.saved = false;
+        
+        // Reset all stats
+        DRIVERS.forEach(d => { d.pts = 0; d.wins = 0; d.podiums = 0; d.dnfs = 0; });
+        TEAMS.forEach(t => { t.pts = 0; t.wins = 0; t.podiums = 0; t.dnfs = 0; });
+
+        State.mode = 'CHAMP';
+        this.setupRound();
+        this.updateModeUI();
+        UI.switchTab('season');
+        UI.log("Season Started! Good luck.", "type-sys");
+    },
+
+    resumeChampionship: function() {
+        State.mode = 'CHAMP';
+        this.setupRound(); 
+        this.updateModeUI();
+        UI.switchTab('season');
+        UI.log(`Championship Resumed at Round ${ChampState.round}.`, "type-sys");
+    },
+
+    initSingleRace: function() {
+        State.mode = 'SINGLE';
+        this.setupRound();
+        this.updateModeUI();
+        UI.switchTab('race');
+        UI.log("Single Race Initialized.", "type-sys");
+    },
+
+    updateModeUI: function() {
+        const btnChamp = document.getElementById('btn-mode-champ');
+        const tag = document.getElementById('mode-tag');
+
+        if(State.mode === 'CHAMP') {
+            tag.innerText = "CHAMPIONSHIP";
+            tag.style.background = "var(--champ-color)";
+            tag.style.color = "black";
+            btnChamp.innerText = "Current Season";
+        } else {
+            tag.innerText = "SINGLE RACE";
+            tag.style.background = "var(--single-color)";
+            tag.style.color = "white";
+            btnChamp.innerText = ChampState.active ? "Resume Season" : "Start Season";
+        }
+    },
+
+    // --- ROUND LOGIC ---
+
+    setupRound: function() {
+        if(State.interval) clearInterval(State.interval);
+        
+        State.phase = 'PRE';
+        State.currentLap = 0;
+        State.grid = [];
+        State.hasSprint = document.getElementById('chk-sprint-weekend').checked;
+        
+        let trackName = "Custom GP";
+        if(State.mode === 'CHAMP') {
+            let idx = (ChampState.round - 1) % TRACK_CALENDAR.length;
+            trackName = TRACK_CALENDAR[idx];
+        }
+        document.getElementById('inp-track').value = trackName;
+
+        let rNum = State.mode === 'CHAMP' ? ChampState.round : 1;
+        let rMax = State.mode === 'CHAMP' ? ChampState.maxRounds : 1;
+        document.getElementById('status-msg').innerText = `Round ${rNum}/${rMax}: Ready`;
+        document.getElementById('track-info').innerText = State.mode === 'CHAMP' ? "Championship Round" : "Exhibition";
+
+        document.getElementById('btn-quali').disabled = false;
+        
+        const btnSprint = document.getElementById('btn-sprint');
+        if(State.hasSprint) {
+            btnSprint.style.display = 'inline-block';
+            btnSprint.disabled = true;
+            document.getElementById('btn-race').innerText = "3. Feature Race";
+        } else {
+            btnSprint.style.display = 'none';
+            document.getElementById('btn-race').innerText = "2. Feature Race";
+        }
+
+        document.getElementById('btn-race').disabled = true;
+        document.getElementById('btn-next').style.display = 'none';
+        document.getElementById('btn-pause').disabled = true;
+        document.getElementById('btn-skip').style.display = 'none';
+        document.getElementById('progress-bar').style.width = '0%';
+        
+        document.getElementById('event-log').innerHTML = '';
+        UI.clearStandings();
+    },
+
+    toggleSprintWeekend: function() {
+        State.hasSprint = document.getElementById('chk-sprint-weekend').checked;
+        Game.setupRound();
+    },
+
+    runQualifying: function() {
+        State.phase = 'QUALI_DONE';
+        UI.log(`Qualifying started...`, "type-sys");
+        
+        let avgTime = parseFloat(document.getElementById('inp-time').value) || 82;
+
+        State.grid = DRIVERS.map((d, i) => ({
+            ...d,
+            id: i,
+            qTime: 0,
+            rTime: 0,
+            status: 'RUNNING',
+            tire: 'Soft',
+            pit: 0,
+            tireAge: 0
+        }));
+
+        State.grid.forEach(d => {
+            let team = TEAMS[d.team];
+            if(!team) return;
+            
+            // NEW CONSISTENCY LOGIC FOR QUALI
+            // Higher consistency = less variance, closer to optimal time
+            // Variance range: High Cons (10) -> 0.5s swing. Low Cons (1) -> 1.5s swing
+            let varianceRange = 1.6 - (d.cons * 0.1); 
+            let variance = (Math.random() * varianceRange) - (varianceRange * 0.5); // centered around 0
+            
+            // Skill Calculation
+            let skill = (d.rate * SimConfig.skillWeight) + (team.perf * SimConfig.carWeight);
+            let skillNorm = skill / (100 * (SimConfig.skillWeight + SimConfig.carWeight)); // Normalize ~0.9
+            
+            d.qTime = avgTime - (skillNorm * 2.0) + variance;
+        });
+
+        State.grid.sort((a,b) => a.qTime - b.qTime);
+
+        UI.updateStandings('QUALI');
+        let pole = State.grid[0];
+        UI.log(`Pole Position: ${pole.name} (${UI.fmtTime(pole.qTime)})`, "type-fast");
+        
+        document.getElementById('status-msg').innerText = "Qualifying Complete.";
+        document.getElementById('btn-quali').disabled = true;
+        
+        if(State.hasSprint) {
+            const btnSprint = document.getElementById('btn-sprint');
+            btnSprint.disabled = false;
+            btnSprint.removeAttribute('disabled');
+        } else {
+            const btnRace = document.getElementById('btn-race');
+            btnRace.disabled = false;
+            btnRace.removeAttribute('disabled');
+        }
+        
+        UI.switchTab('race');
+    },
+
+    startSprint: function() {
+        State.phase = 'SPRINT';
+        let totalLaps = parseInt(document.getElementById('inp-laps').value) || 53;
+        State.laps = Math.max(5, Math.floor(totalLaps / 3)); 
+        
+        State.currentLap = 0;
+        State.sessionBest = 9999;
+        State.paused = false;
+
+        State.grid.forEach((d, i) => {
+            d.rTime = i * 0.2; 
+            d.tireAge = 0;
+            d.status = 'RUNNING';
+            d.tire = 'Medium'; 
+        });
+
+        document.getElementById('btn-sprint').disabled = true;
+        document.getElementById('btn-pause').disabled = false;
+        document.getElementById('btn-pause').removeAttribute('disabled');
+        document.getElementById('btn-skip').style.display = 'inline-block';
+
+        UI.log(`SPRINT RACE START (${State.laps} Laps)!`, "type-fast");
+        State.interval = setInterval(this.raceTick, 1000); 
+    },
+
+    startRace: function() {
+        State.phase = 'RACE';
+        State.laps = parseInt(document.getElementById('inp-laps').value) || 50;
+        State.currentLap = 0;
+        State.sessionBest = 9999;
+        State.paused = false;
+
+        // Reset grid to Quali order
+        State.grid.sort((a,b) => a.qTime - b.qTime);
+
+        State.grid.forEach((d, i) => {
+            d.rTime = i * 0.2; 
+            d.tireAge = 0;
+            d.status = 'RUNNING';
+            d.tire = Math.random() > 0.4 ? 'Medium' : 'Soft';
+        });
+
+        document.getElementById('btn-race').disabled = true;
+        document.getElementById('btn-pause').disabled = false;
+        document.getElementById('btn-pause').removeAttribute('disabled');
+        document.getElementById('btn-skip').style.display = 'inline-block';
+
+        UI.log("FEATURE RACE START!", "type-fast");
+        State.interval = setInterval(this.raceTick, 1000); 
+    },
+
+    raceTick: function() {
+        if(State.paused) return;
+        State.currentLap++;
+        Game.processLapLogic();
+        Game.updateRaceUI();
+        if(State.currentLap >= State.laps) {
+            Game.finishSession();
+        }
+    },
+
+    processLapLogic: function() {
+        let scMult = parseFloat(document.getElementById('inp-sc').value);
+        let avgTime = parseFloat(document.getElementById('inp-time').value);
+
+        State.grid.forEach(d => {
+            if(d.status !== 'RUNNING') return;
+
+            let team = TEAMS[d.team];
+            
+            // Skill
+            let skill = (d.rate * SimConfig.skillWeight) + (team.perf * SimConfig.carWeight);
+            let skillNorm = skill / (100 * (SimConfig.skillWeight + SimConfig.carWeight));
+            
+            // Tire & Variance
+            let tireDeg = d.tireAge * SimConfig.tireWear;
+            // Consistency reduces lap time variance (better pace keeping)
+            let varRange = (SimConfig.chaosFactor * 1.5) - (d.cons * 0.1); 
+            if(varRange < 0.2) varRange = 0.2;
+            let variance = (Math.random() * varRange); 
+
+            let lapTime = (avgTime + variance) - (skillNorm * 2.5) + tireDeg;
+            
+            // NEW CRASH LOGIC based on CONSISTENCY
+            let rng = Math.random() * 1000;
+            // Lower Cons = Higher mistake chance
+            let mistakeProb = (11 - d.cons) * SimConfig.crashRate * scMult; 
+            
+            if(rng < mistakeProb) {
+                d.status = 'DNF';
+                UI.log(`CRASH: ${d.name} is out!`, "type-crash");
+                return;
+            }
+
+            // Pit
+            d.tireAge++;
+            let pitThresh = (State.phase === 'SPRINT') ? 999 : (20 + Math.random()*15);
+            
+            if(d.tireAge > pitThresh) {
+                d.rTime += 22; 
+                d.tireAge = 0;
+                let oldT = d.tire;
+                d.tire = (oldT === 'Soft' ? 'Medium' : 'Soft');
+                UI.log(`Pit Stop: ${d.name}`, "type-pit");
+            }
+
+            d.rTime += lapTime;
+
+            if(lapTime < State.sessionBest) {
+                State.sessionBest = lapTime;
+                UI.log(`Fastest Lap: ${d.name} (${UI.fmtTime(lapTime)})`, "type-fast");
+            }
+        });
+    },
+
+    updateRaceUI: function() {
+        let progress = (State.currentLap / State.laps) * 100;
+        document.getElementById('progress-bar').style.width = progress + '%';
+        let label = State.phase === 'SPRINT' ? 'Sprint' : 'Race';
+        document.getElementById('status-msg').innerText = `${label}: Lap ${State.currentLap} / ${State.laps}`;
+        UI.updateStandings('RACE');
+    },
+
+    skipRace: function() {
+        if(State.interval) clearInterval(State.interval);
+        UI.log("QUICK SIMULATING...", "type-sys");
+        while(State.currentLap < State.laps) {
+            State.currentLap++;
+            this.processLapLogic();
+        }
+        this.updateRaceUI();
+        this.finishSession();
+    },
+
+    finishSession: function() {
+        if(State.interval) clearInterval(State.interval);
+        
+        document.getElementById('btn-skip').style.display = 'none';
+        document.getElementById('btn-pause').disabled = true;
+
+        let winner = State.grid.filter(d => d.status === 'RUNNING').sort((a,b) => a.rTime - b.rTime)[0];
+        let wName = winner ? winner.name : 'Unknown';
+
+        if(State.phase === 'SPRINT') {
+            State.phase = 'SPRINT_DONE';
+            UI.log(`SPRINT WINNER: ${wName}`, "type-fast");
+            document.getElementById('status-msg').innerText = "Sprint Finished.";
+            this.assignPoints(POINTS_SPRINT, "Sprint");
+            
+            const btnRace = document.getElementById('btn-race');
+            btnRace.disabled = false;
+            btnRace.removeAttribute('disabled');
+        } else {
+            State.phase = 'POST';
+            UI.log(`FEATURE RACE WINNER: ${wName}`, "type-fast");
+            document.getElementById('status-msg').innerText = "Round Finished.";
+            
+            this.assignPoints(POINTS_FULL, "Race");
+
+            // Count DNFs
+            State.grid.forEach(d => {
+                if(d.status === 'DNF') {
+                    DRIVERS[d.id].dnfs++;
+                    TEAMS[DRIVERS[d.id].team].dnfs++;
+                }
+            });
+
+            if(State.mode === 'CHAMP' && ChampState.round < ChampState.maxRounds) {
+                let btn = document.getElementById('btn-next');
+                btn.innerText = "Start Round " + (ChampState.round + 1);
+                btn.style.display = 'inline-block';
+            } else if (State.mode === 'CHAMP') {
+                UI.log("Season Complete! Check Standings.", "type-sys");
+                UI.switchTab('season');
+            } else {
+                UI.log("Race Event Complete.", "type-sys");
+            }
+        }
+    },
+
+    assignPoints: function(system, label) {
+        let results = [...State.grid].sort((a,b) => {
+            if(a.status === 'DNF') return 1;
+            if(b.status === 'DNF') return -1;
+            return a.rTime - b.rTime;
+        });
+
+        results.forEach((r, i) => {
+            let pts = 0;
+            if(r.status === 'RUNNING' && i < system.length) {
+                pts = system[i];
+            }
+            
+            r.pts += pts;
+            DRIVERS[r.id].pts += pts;
+            TEAMS[DRIVERS[r.id].team].pts += pts;
+
+            // Increment Wins/Podiums only for Feature Races
+            if(label === "Race" && r.status === 'RUNNING') {
+                if(i === 0) {
+                    DRIVERS[r.id].wins++;
+                    TEAMS[DRIVERS[r.id].team].wins++;
+                }
+                if(i < 3) {
+                    DRIVERS[r.id].podiums++;
+                    TEAMS[DRIVERS[r.id].team].podiums++;
+                }
+            }
+        });
+        UI.log(`${label} results processed.`, "type-sys");
+    },
+
+    nextRound: function() {
+        ChampState.round++;
+        this.setupRound();
+    },
+
+    togglePause: function() {
+        State.paused = !State.paused;
+        document.getElementById('btn-pause').innerText = State.paused ? "Resume" : "Pause";
+    }
+};
+
+const UI = {
+    view: 'race',
+
+    openSeasonModal: function() { document.getElementById('modal-season').style.display = 'flex'; },
+    openAdvanced: function() { document.getElementById('modal-advanced').style.display = 'flex'; },
+    closeModal: function(id) { document.getElementById(id).style.display = 'none'; },
+
+    switchTab: function(mode) {
+        this.view = mode;
+        document.getElementById('tab-race').className = mode === 'race' ? 'tab-btn active' : 'tab-btn';
+        document.getElementById('tab-season').className = mode === 'season' ? 'tab-btn active' : 'tab-btn';
+        document.getElementById('tab-const').className = mode === 'constructors' ? 'tab-btn active' : 'tab-btn';
+        
+        // Update header
+        const h = document.getElementById('standings-header');
+        if(mode === 'race') {
+            h.className = "header-row row-standard";
+            h.innerHTML = `<div>Pos</div><div></div><div>Name</div><div style="text-align:center">Info</div><div style="text-align:right">Time</div>`;
+        } else if (mode === 'season') {
+            h.className = "header-row row-stats";
+            h.innerHTML = `<div>Pos</div><div></div><div>Name</div><div style="text-align:center">Win</div><div style="text-align:center">Pod</div><div style="text-align:center">DNF</div><div style="text-align:right">Pts</div>`;
+        } else {
+            h.className = "header-row row-stats";
+            h.innerHTML = `<div>Pos</div><div></div><div>Team</div><div style="text-align:center">Win</div><div style="text-align:center">Pod</div><div style="text-align:center">DNF</div><div style="text-align:right">Pts</div>`;
+        }
+
+        if(mode === 'season') this.renderSeasonTable();
+        else if(mode === 'constructors') this.renderConstructorsTable();
+        else if(State.phase !== 'PRE') this.updateStandings(State.phase === 'QUALI_DONE' ? 'QUALI' : 'RACE');
+        else this.clearStandings();
+    },
+
+    updateStandings: function(context) {
+        if(this.view !== 'race') return;
+        let list = [...State.grid];
+        if(context === 'RACE') {
+            list.sort((a,b) => {
+                if(a.status === 'DNF') return 1;
+                if(b.status === 'DNF') return -1;
+                return a.rTime - b.rTime;
+            });
+        }
+        
+        let container = document.getElementById('standings-body');
+        container.innerHTML = '';
+
+        let leaderTime = list[0] ? (context === 'QUALI' ? list[0].qTime : list[0].rTime) : 0;
+
+        list.forEach((d, i) => {
+            let row = document.createElement('div');
+            let team = TEAMS[d.team];
+            let isWinner = (context === 'RACE' && (State.phase === 'POST' || State.phase === 'SPRINT_DONE') && i === 0);
+            
+            row.className = `driver-row ${d.status === 'DNF' ? 'dnf' : ''} ${isWinner ? 'winner' : ''} row-standard`;
+            
+            let timeVal = context === 'QUALI' ? d.qTime : d.rTime;
+            let displayTime = i===0 ? this.fmtTime(timeVal) : `+${(timeVal - leaderTime).toFixed(3)}`;
+            if(d.status === 'DNF') displayTime = "DNF";
+
+            let infoClass = d.tire === 'Soft' ? 'tire-s' : (d.tire === 'Medium' ? 'tire-m' : 'tire-h');
+            let infoTxt = context === 'QUALI' ? 'Q' : d.tire[0];
+
+            row.innerHTML = `
+                <div style="font-weight:bold; color:#fff;">${i+1}</div>
+                <div class="team-strip" style="background:${team.color}"></div>
+                <div>${d.name} <span style="color:#666; font-size:0.8em">${team.name}</span></div>
+                <div class="info-cell ${infoClass}">${infoTxt}</div>
+                <div class="data-cell">${displayTime}</div>
+            `;
+            container.appendChild(row);
+        });
+    },
+
+    renderSeasonTable: function() {
+        let container = document.getElementById('standings-body');
+        container.innerHTML = '';
+        let drivers = [...DRIVERS].sort((a,b) => b.pts - a.pts);
+        
+        drivers.forEach((d, i) => {
+            let team = TEAMS[d.team];
+            let row = document.createElement('div');
+            row.className = 'driver-row row-stats';
+            row.innerHTML = `
+                <div style="font-weight:bold; color:#fff;">${i+1}</div>
+                <div class="team-strip" style="background:${team.color}"></div>
+                <div>${d.name} <span style="color:#666; font-size:0.8em">${team.name}</span></div>
+                <div class="info-cell stat-win">${d.wins}</div>
+                <div class="info-cell stat-pod">${d.podiums}</div>
+                <div class="info-cell stat-dnf">${d.dnfs}</div>
+                <div class="data-cell" style="color:#fff; font-weight:bold;">${d.pts}</div>
+            `;
+            container.appendChild(row);
+        });
+    },
+
+    renderConstructorsTable: function() {
+        let container = document.getElementById('standings-body');
+        container.innerHTML = '';
+        let teamsSorted = [...TEAMS].sort((a,b) => b.pts - a.pts);
+        
+        teamsSorted.forEach((t, i) => {
+            let row = document.createElement('div');
+            row.className = 'driver-row row-stats';
+            row.innerHTML = `
+                <div style="font-weight:bold; color:#fff;">${i+1}</div>
+                <div class="team-strip" style="background:${t.color}"></div>
+                <div style="font-weight:bold;">${t.name}</div>
+                <div class="info-cell stat-win">${t.wins}</div>
+                <div class="info-cell stat-pod">${t.podiums}</div>
+                <div class="info-cell stat-dnf">${t.dnfs}</div>
+                <div class="data-cell" style="color:#fff; font-weight:bold;">${t.pts}</div>
+            `;
+            container.appendChild(row);
+        });
+    },
+
+    clearStandings: function() {
+        document.getElementById('standings-body').innerHTML = '<div style="padding:20px; text-align:center; color:#555;">Session Not Started</div>';
+    },
+
+    log: function(msg, type) {
+        let div = document.createElement('div');
+        div.className = `log-entry ${type}`;
+        div.innerHTML = `<div class="log-lap">L${State.currentLap}</div><div class="log-msg">${msg}</div>`;
+        let box = document.getElementById('event-log');
+        box.prepend(div);
+        if(box.children.length > 50) box.lastChild.remove();
+    },
+
+    fmtTime: function(s) {
+        let m = Math.floor(s/60);
+        let sec = (s%60).toFixed(3);
+        return `${m}:${sec.padStart(6, '0')}`;
+    },
+
+    openEditor: function() {
+        let box = document.getElementById('editor-content');
+        box.innerHTML = '';
+        document.getElementById('modal-editor').style.display = 'flex';
+        window.editTeams = JSON.parse(JSON.stringify(TEAMS));
+        window.editDrivers = JSON.parse(JSON.stringify(DRIVERS));
+        this.renderEditor();
+    },
+
+    renderEditor: function() {
+        let box = document.getElementById('editor-content');
+        box.innerHTML = '';
+        
+        window.editTeams.forEach((t, ti) => {
+            let card = document.createElement('div');
+            card.className = 'team-edit-card';
+            
+            let dRows = window.editDrivers
+                .map((d, di) => ({d, di})) 
+                .filter(o => o.d.team === ti)
+                .map(o => `
+                    <div class="driver-edit-row">
+                        <input type="text" value="${o.d.name}" onchange="editDrivers[${o.di}].name = this.value">
+                        <input type="number" value="${o.d.rate}" min="50" max="99" onchange="editDrivers[${o.di}].rate = parseInt(this.value)" title="Rating">
+                        <input type="number" value="${o.d.cons}" min="1" max="10" onchange="editDrivers[${o.di}].cons = parseInt(this.value)" title="Consistency">
+                    </div>
+                `).join('');
+
+            card.innerHTML = `
+                <div class="team-edit-header">
+                    <input type="text" value="${t.name}" onchange="editTeams[${ti}].name = this.value">
+                    <input type="color" value="${t.color}" onchange="editTeams[${ti}].color = this.value" style="height:35px; padding:0;">
+                    <input type="number" value="${t.perf}" min="50" max="100" onchange="editTeams[${ti}].perf = parseInt(this.value)" title="Car Perf">
+                    <button class="btn-main" style="background:#cc0000; width:auto; padding:5px 10px;" onclick="Editor.removeTeam(${ti})">X</button>
+                </div>
+                <div style="font-size:0.8em; color:#888; margin-left:15px; margin-bottom:5px;">Name | Rate | Cons</div>
+                ${dRows}
+            `;
+            box.appendChild(card);
+        });
+    }
+};
+
+const Editor = {
+    addTeam: function() {
+        if(window.editTeams.length >= 12) return alert("Max 12 Teams");
+        let id = window.editTeams.length;
+        window.editTeams.push({ name: "New Team", color: "#ffffff", perf: 80, pts: 0, wins: 0, podiums: 0, dnfs: 0 });
+        window.editDrivers.push({ name: "Driver A", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 });
+        window.editDrivers.push({ name: "Driver B", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 });
+        UI.renderEditor();
+    },
+    removeTeam: function(idx) {
+        if(window.editTeams.length <= 2) return alert("Min 2 Teams");
+        window.editTeams.splice(idx, 1);
+        window.editDrivers = window.editDrivers.filter(d => d.team !== idx);
+        window.editDrivers.forEach(d => { if(d.team > idx) d.team--; });
+        UI.renderEditor();
+    },
+    save: function() {
+        TEAMS = window.editTeams;
+        DRIVERS = window.editDrivers;
+        UI.closeModal('modal-editor');
+        UI.log("Grid Updated via Editor", "type-sys");
+    }
+};
+
+</script>
+</body>
+</html>
