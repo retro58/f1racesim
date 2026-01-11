@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>F1 Race Simulator v2.8</title>
+    <title>F1 Race Simulator v3.1</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -111,8 +111,8 @@
         
         .row-stats {
             display: grid;
-            grid-template-columns: 30px 4px 1fr 40px 40px 40px 50px; /* Pos Col Name Win Pod DNF Pts */
-            gap: 8px; padding: 8px; border-bottom: 1px solid #2a2a2a;
+            grid-template-columns: 30px 4px 1fr 40px 40px 40px 40px 50px; /* Pos Col Name Pole Win Pod DNF Pts */
+            gap: 5px; padding: 8px; border-bottom: 1px solid #2a2a2a;
             align-items: center; font-size: 0.85em;
         }
 
@@ -132,6 +132,7 @@
         .tire-s { color: #ff4444; } .tire-m { color: #ffe600; } .tire-h { color: #fff; }
         .stat-win { color: var(--success-color); font-weight: bold; }
         .stat-pod { color: var(--champ-color); }
+        .stat-pole { color: var(--quali-color); }
         .stat-dnf { color: #ff4444; }
 
         #event-log { font-family: 'Consolas', monospace; font-size: 0.85em; flex-grow: 1; overflow-y: auto; scroll-behavior: smooth; }
@@ -172,12 +173,24 @@
         .team-edit-header { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #333; }
         .driver-edit-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-top: 5px; padding-left: 15px; border-left: 2px solid #555; }
 
+        .calendar-row { 
+            display: grid; 
+            grid-template-columns: 30px 2fr 70px 70px 60px 80px 40px; 
+            gap: 10px; margin-bottom: 8px; align-items: center; border-bottom: 1px solid #333; padding-bottom: 8px;
+        }
+        .calendar-row input[type="text"] { flex-grow: 1; }
+        .calendar-row label { font-size: 0.8em; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+
         .adv-slider { width: 100%; margin: 5px 0; }
         .adv-label { display: flex; justify-content: space-between; font-size: 0.8em; color: #aaa; margin-top: 10px;}
 
         @media (max-width: 600px) {
             .team-edit-header, .driver-edit-row { grid-template-columns: 1fr; gap: 5px; }
             .setup-row { grid-template-columns: 1fr; }
+            .calendar-row { grid-template-columns: 30px 1fr; grid-template-rows: auto auto; gap: 5px; }
+            .calendar-row > * { grid-column: span 2; }
+            .calendar-row > span { grid-column: span 1; }
+            .calendar-row > input[type="text"] { grid-column: span 1; }
             h1 { font-size: 1.5em; }
             #status-bar { flex-direction: column; text-align: center; }
         }
@@ -186,7 +199,7 @@
 </head>
 <body>
 
-    <h1>F1 Race Simulator <span style="color:var(--accent-color)">2.8</span></h1>
+    <h1>F1 Race Simulator <span style="color:var(--accent-color)">3.1</span></h1>
     <div class="subtitle">Complete Season Management & Race Simulation</div>
 
     <!-- Status Bar -->
@@ -207,8 +220,9 @@
         <div class="panel">
             <div style="display:flex; gap:5px; margin-bottom: 5px;">
                 <button class="btn-main" onclick="UI.openEditor()" style="flex:1">Manage Teams</button>
-                <button class="btn-adv" onclick="UI.openAdvanced()" style="flex:1">Advanced Settings</button>
+                <button class="btn-main" onclick="CalendarEditor.open()" style="flex:1">Manage Calendar</button>
             </div>
+            <button class="btn-adv" onclick="UI.openAdvanced()" style="margin-bottom: 15px;">Advanced Settings</button>
 
             <div class="section-title">Game Mode</div>
             <div class="setup-row">
@@ -217,7 +231,7 @@
             </div>
 
             <div class="section-title">Track Settings</div>
-            <label>Current Track (Editable)</label>
+            <label>Current Track</label>
             <input type="text" id="inp-track" value="Monza" style="color:var(--text-color);">
             
             <div class="setup-row">
@@ -241,7 +255,7 @@
 
             <div class="checkbox-row" onclick="Game.toggleSprintWeekend()">
                 <input type="checkbox" id="chk-sprint-weekend">
-                <label for="chk-sprint-weekend">Sprint Weekend (Add Sprint Race)</label>
+                <label for="chk-sprint-weekend">Sprint Weekend</label>
             </div>
 
             <div class="section-title">Session Controls</div>
@@ -296,6 +310,24 @@
         </div>
     </div>
 
+    <!-- CALENDAR EDITOR MODAL -->
+    <div id="modal-calendar" class="modal-overlay">
+        <div class="modal-box" style="max-width:900px;">
+            <div style="padding-bottom:15px; border-bottom:1px solid #444; display:flex; justify-content:space-between;">
+                <h3 style="margin:0">Calendar Editor</h3>
+                <button class="btn-success" onclick="CalendarEditor.addTrack()" style="width:auto; padding:5px 15px;">+ Add Track</button>
+            </div>
+            <div style="display:grid; grid-template-columns: 30px 2fr 70px 70px 60px 80px 40px; gap:10px; padding:10px 20px; font-size:0.8em; color:#888; border-bottom:1px solid #333;">
+                <span>#</span><span>Track Name</span><span>Laps</span><span>Avg(s)</span><span>Sprint</span><span>Move</span><span>Del</span>
+            </div>
+            <div class="modal-scroll" id="calendar-content"></div>
+            <div style="padding-top:15px; border-top:1px solid #444; text-align:right;">
+                <button class="btn-main" onclick="UI.closeModal('modal-calendar')" style="width:100px;">Cancel</button>
+                <button class="btn-race" onclick="CalendarEditor.save()" style="width:150px;">Save Calendar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ADVANCED OPTIONS MODAL -->
     <div id="modal-advanced" class="modal-overlay">
         <div class="modal-box modal-small">
@@ -326,8 +358,8 @@
     <div id="modal-season" class="modal-overlay">
         <div class="modal-box modal-small">
             <h3 style="margin-top:0">New Championship</h3>
-            <label>Number of Rounds</label>
-            <input type="number" id="season-rounds-input" value="24" min="1" max="99" style="margin-bottom:20px;">
+            <label>Number of Rounds (from Calendar)</label>
+            <input type="number" id="season-rounds-input" value="20" min="1" max="99" style="margin-bottom:20px;">
             <div style="display:flex; gap:10px;">
                 <button class="btn-main" onclick="UI.closeModal('modal-season')">Cancel</button>
                 <button class="btn-race" onclick="Game.initChampionship()">Start</button>
@@ -337,17 +369,35 @@
 
 <script>
 /**
- * F1 SIMULATOR CORE V2.7
- * Features: Wins/Podiums/DNFs, Consistency Stat, Advanced Config
+ * F1 SIMULATOR CORE V3.1
+ * Features: Detailed Calendar with Laps, Time, Sprint config per track.
  */
 
 // --- CONFIG & DATA ---
-const TRACK_CALENDAR = [
-    "Bahrain GP", "Saudi Arabian GP", "Australian GP", "Japanese GP", 
-    "Miami GP", "Monaco GP", "British GP", "Spa-Francorchamps", 
-    "Italian GP", "Singapore GP", "US GP", "Brazilian GP",
-    "Las Vegas GP", "Qatar GP", "Abu Dhabi GP", "Spanish GP",
-    "Canadian GP", "Austrian GP", "Hungarian GP", "Dutch GP"
+let TRACK_CALENDAR = [
+    { name: "Bahrain GP", laps: 57, time: 92, sprint: false },
+    { name: "Saudi Arabian GP", laps: 50, time: 89, sprint: false },
+    { name: "Australian GP", laps: 58, time: 80, sprint: false },
+    { name: "Japanese GP", laps: 53, time: 90, sprint: false },
+    { name: "Chinese GP", laps: 56, time: 95, sprint: true },
+    { name: "Miami GP", laps: 57, time: 88, sprint: true },
+    { name: "Monaco GP", laps: 78, time: 74, sprint: false },
+    { name: "Canadian GP", laps: 70, time: 73, sprint: false },
+    { name: "Spanish GP", laps: 66, time: 78, sprint: false },
+    { name: "Austrian GP", laps: 71, time: 65, sprint: true },
+    { name: "British GP", laps: 52, time: 87, sprint: false },
+    { name: "Hungarian GP", laps: 70, time: 76, sprint: false },
+    { name: "Belgian GP", laps: 44, time: 105, sprint: false },
+    { name: "Dutch GP", laps: 72, time: 71, sprint: false },
+    { name: "Italian GP", laps: 53, time: 81, sprint: false },
+    { name: "Azerbaijan GP", laps: 51, time: 103, sprint: false },
+    { name: "Singapore GP", laps: 62, time: 96, sprint: false },
+    { name: "US GP", laps: 56, time: 94, sprint: true },
+    { name: "Mexican GP", laps: 71, time: 77, sprint: false },
+    { name: "Brazilian GP", laps: 71, time: 70, sprint: true },
+    { name: "Las Vegas GP", laps: 50, time: 93, sprint: false },
+    { name: "Qatar GP", laps: 57, time: 83, sprint: true },
+    { name: "Abu Dhabi GP", laps: 58, time: 86, sprint: false }
 ];
 
 const POINTS_FULL = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
@@ -376,47 +426,52 @@ const Config = {
     }
 };
 
-// Master Data (Note: 'agg' replaced by 'cons' for Consistency)
+// Master Data
 let TEAMS = [
-    { name: "Red Bull", color: "#0600ef", perf: 98, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Ferrari", color: "#dc0000", perf: 96, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Mercedes", color: "#00d2be", perf: 95, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "McLaren", color: "#ff8700", perf: 97, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Aston Martin", color: "#006f62", perf: 92, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Alpine", color: "#0090ff", perf: 88, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Williams", color: "#005aff", perf: 85, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "RB", color: "#131370", perf: 86, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Audi", color: "#c94b57", perf: 82, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Haas", color: "#b6babd", perf: 84, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "Cadillac", color: "#f7ff57", perf: 80, pts: 0, wins: 0, podiums: 0, dnfs: 0 }
+    { name: "Red Bull", color: "#0600ef", perf: 98, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "Ferrari", color: "#dc0000", perf: 96, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "Mercedes", color: "#00d2be", perf: 95, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "McLaren", color: "#ff8700", perf: 97, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "Aston Martin", color: "#006f62", perf: 92, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "Alpine", color: "#0090ff", perf: 88, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "Williams", color: "#005aff", perf: 85, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "RB", color: "#131370", perf: 86, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "Audi", color: "#c94b57", perf: 82, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "Haas", color: "#b6babd", perf: 84, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "Cadillac", color: "#f7ff57", perf: 80, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 }
 ];
 
 let DRIVERS = [
-    { name: "M. Verstappen", team: 0, rate: 95, cons: 9, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "I. Hadjar", team: 0, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "C. Leclerc", team: 1, rate: 90, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "L. Hamilton", team: 1, rate: 87, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "G. Russell", team: 2, rate: 94, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "K. Antonelli", team: 2, rate: 85, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "L. Norris", team: 3, rate: 97, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "O. Piastri", team: 3, rate: 95, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "F. Alonso", team: 4, rate: 93, cons: 9, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "L. Stroll", team: 4, rate: 82, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "P. Gasly", team: 5, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "F. Colapinto", team: 5, rate: 78, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "A. Albon", team: 6, rate: 89, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "C. Sainz", team: 6, rate: 92, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "A. Lindblad", team: 7, rate: 75, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "L. Lawson", team: 7, rate: 84, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "N. Hulkenberg", team: 8, rate: 86, cons: 8, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "G. Bortoleto", team: 8, rate: 81, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "E. Ocon", team: 9, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "O. Bearman", team: 9, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "V. Bottas", team: 10, rate: 85, cons: 6, pts: 0, wins: 0, podiums: 0, dnfs: 0 },
-    { name: "S. Perez", team: 10, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, dnfs: 0 }
+    { name: "M. Verstappen", team: 0, rate: 95, cons: 9, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "I. Hadjar", team: 0, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "C. Leclerc", team: 1, rate: 90, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "L. Hamilton", team: 1, rate: 87, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "G. Russell", team: 2, rate: 94, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "K. Antonelli", team: 2, rate: 85, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "L. Norris", team: 3, rate: 97, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "O. Piastri", team: 3, rate: 95, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "F. Alonso", team: 4, rate: 93, cons: 9, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "L. Stroll", team: 4, rate: 82, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "P. Gasly", team: 5, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "F. Colapinto", team: 5, rate: 78, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "A. Albon", team: 6, rate: 89, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "C. Sainz", team: 6, rate: 92, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "A. Lindblad", team: 7, rate: 75, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "L. Lawson", team: 7, rate: 84, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "N. Hulkenberg", team: 8, rate: 86, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "G. Bortoleto", team: 8, rate: 81, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "E. Ocon", team: 9, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "O. Bearman", team: 9, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "V. Bottas", team: 10, rate: 85, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
+    { name: "S. Perez", team: 10, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 }
 ];
 
-let ChampState = { active: false, round: 1, maxRounds: 10, saved: false };
+let ChampState = { 
+    active: false, 
+    round: 1, 
+    maxRounds: 24, 
+    saved: false
+};
 
 const State = {
     mode: 'IDLE',
@@ -458,7 +513,7 @@ const Game = {
     initChampionship: function() {
         let roundsInput = document.getElementById('season-rounds-input').value;
         let rounds = parseInt(roundsInput);
-        if(isNaN(rounds) || rounds < 1) rounds = 10;
+        if(isNaN(rounds) || rounds < 1) rounds = TRACK_CALENDAR.length;
 
         UI.closeModal('modal-season');
 
@@ -468,14 +523,14 @@ const Game = {
         ChampState.saved = false;
         
         // Reset all stats
-        DRIVERS.forEach(d => { d.pts = 0; d.wins = 0; d.podiums = 0; d.dnfs = 0; });
-        TEAMS.forEach(t => { t.pts = 0; t.wins = 0; t.podiums = 0; t.dnfs = 0; });
+        DRIVERS.forEach(d => { d.pts = 0; d.wins = 0; d.podiums = 0; d.poles = 0; d.dnfs = 0; });
+        TEAMS.forEach(t => { t.pts = 0; t.wins = 0; t.podiums = 0; t.poles = 0; t.dnfs = 0; });
 
         State.mode = 'CHAMP';
         this.setupRound();
         this.updateModeUI();
         UI.switchTab('season');
-        UI.log("Season Started! Good luck.", "type-sys");
+        UI.log("Season Started!", "type-sys");
     },
 
     resumeChampionship: function() {
@@ -519,14 +574,26 @@ const Game = {
         State.phase = 'PRE';
         State.currentLap = 0;
         State.grid = [];
-        State.hasSprint = document.getElementById('chk-sprint-weekend').checked;
         
         let trackName = "Custom GP";
+        let trackObj = null;
+
         if(State.mode === 'CHAMP') {
             let idx = (ChampState.round - 1) % TRACK_CALENDAR.length;
-            trackName = TRACK_CALENDAR[idx];
+            trackObj = TRACK_CALENDAR[idx];
+            trackName = trackObj.name;
+            
+            // Auto Load Track Data
+            document.getElementById('inp-laps').value = trackObj.laps;
+            document.getElementById('inp-time').value = trackObj.time;
+            document.getElementById('chk-sprint-weekend').checked = trackObj.sprint;
+        } else {
+            // Single Race: Keep current input values or reset defaults? Keep current.
+            trackName = document.getElementById('inp-track').value;
         }
+        
         document.getElementById('inp-track').value = trackName;
+        State.hasSprint = document.getElementById('chk-sprint-weekend').checked;
 
         let rNum = State.mode === 'CHAMP' ? ChampState.round : 1;
         let rMax = State.mode === 'CHAMP' ? ChampState.maxRounds : 1;
@@ -557,7 +624,7 @@ const Game = {
 
     toggleSprintWeekend: function() {
         State.hasSprint = document.getElementById('chk-sprint-weekend').checked;
-        Game.setupRound();
+        Game.setupRound(); // Refresh buttons
     },
 
     runQualifying: function() {
@@ -581,15 +648,10 @@ const Game = {
             let team = TEAMS[d.team];
             if(!team) return;
             
-            // NEW CONSISTENCY LOGIC FOR QUALI
-            // Higher consistency = less variance, closer to optimal time
-            // Variance range: High Cons (10) -> 0.5s swing. Low Cons (1) -> 1.5s swing
             let varianceRange = 1.6 - (d.cons * 0.1); 
-            let variance = (Math.random() * varianceRange) - (varianceRange * 0.5); // centered around 0
-            
-            // Skill Calculation
+            let variance = (Math.random() * varianceRange) - (varianceRange * 0.5);
             let skill = (d.rate * SimConfig.skillWeight) + (team.perf * SimConfig.carWeight);
-            let skillNorm = skill / (100 * (SimConfig.skillWeight + SimConfig.carWeight)); // Normalize ~0.9
+            let skillNorm = skill / (100 * (SimConfig.skillWeight + SimConfig.carWeight));
             
             d.qTime = avgTime - (skillNorm * 2.0) + variance;
         });
@@ -598,7 +660,12 @@ const Game = {
 
         UI.updateStandings('QUALI');
         let pole = State.grid[0];
-        UI.log(`Pole Position: ${pole.name} (${UI.fmtTime(pole.qTime)})`, "type-fast");
+        
+        // POLE POSITION TRACKING
+        DRIVERS[pole.id].poles++;
+        TEAMS[DRIVERS[pole.id].team].poles++;
+
+        UI.log(`POLE POSITION: ${pole.name} (${UI.fmtTime(pole.qTime)})`, "type-fast");
         
         document.getElementById('status-msg').innerText = "Qualifying Complete.";
         document.getElementById('btn-quali').disabled = true;
@@ -618,6 +685,7 @@ const Game = {
 
     startSprint: function() {
         State.phase = 'SPRINT';
+        // Auto-calc laps from current input
         let totalLaps = parseInt(document.getElementById('inp-laps').value) || 53;
         State.laps = Math.max(5, Math.floor(totalLaps / 3)); 
         
@@ -643,12 +711,13 @@ const Game = {
 
     startRace: function() {
         State.phase = 'RACE';
-        State.laps = parseInt(document.getElementById('inp-laps').value) || 50;
+        // Feature Race Laps
+        State.laps = parseInt(document.getElementById('inp-laps').value) || 53;
+        
         State.currentLap = 0;
         State.sessionBest = 9999;
         State.paused = false;
 
-        // Reset grid to Quali order
         State.grid.sort((a,b) => a.qTime - b.qTime);
 
         State.grid.forEach((d, i) => {
@@ -685,23 +754,17 @@ const Game = {
             if(d.status !== 'RUNNING') return;
 
             let team = TEAMS[d.team];
-            
-            // Skill
             let skill = (d.rate * SimConfig.skillWeight) + (team.perf * SimConfig.carWeight);
             let skillNorm = skill / (100 * (SimConfig.skillWeight + SimConfig.carWeight));
             
-            // Tire & Variance
             let tireDeg = d.tireAge * SimConfig.tireWear;
-            // Consistency reduces lap time variance (better pace keeping)
             let varRange = (SimConfig.chaosFactor * 1.5) - (d.cons * 0.1); 
             if(varRange < 0.2) varRange = 0.2;
             let variance = (Math.random() * varRange); 
 
             let lapTime = (avgTime + variance) - (skillNorm * 2.5) + tireDeg;
             
-            // NEW CRASH LOGIC based on CONSISTENCY
             let rng = Math.random() * 1000;
-            // Lower Cons = Higher mistake chance
             let mistakeProb = (11 - d.cons) * SimConfig.crashRate * scMult; 
             
             if(rng < mistakeProb) {
@@ -710,7 +773,6 @@ const Game = {
                 return;
             }
 
-            // Pit
             d.tireAge++;
             let pitThresh = (State.phase === 'SPRINT') ? 999 : (20 + Math.random()*15);
             
@@ -775,7 +837,6 @@ const Game = {
             
             this.assignPoints(POINTS_FULL, "Race");
 
-            // Count DNFs
             State.grid.forEach(d => {
                 if(d.status === 'DNF') {
                     DRIVERS[d.id].dnfs++;
@@ -813,7 +874,6 @@ const Game = {
             DRIVERS[r.id].pts += pts;
             TEAMS[DRIVERS[r.id].team].pts += pts;
 
-            // Increment Wins/Podiums only for Feature Races
             if(label === "Race" && r.status === 'RUNNING') {
                 if(i === 0) {
                     DRIVERS[r.id].wins++;
@@ -852,17 +912,16 @@ const UI = {
         document.getElementById('tab-season').className = mode === 'season' ? 'tab-btn active' : 'tab-btn';
         document.getElementById('tab-const').className = mode === 'constructors' ? 'tab-btn active' : 'tab-btn';
         
-        // Update header
         const h = document.getElementById('standings-header');
         if(mode === 'race') {
             h.className = "header-row row-standard";
             h.innerHTML = `<div>Pos</div><div></div><div>Name</div><div style="text-align:center">Info</div><div style="text-align:right">Time</div>`;
         } else if (mode === 'season') {
             h.className = "header-row row-stats";
-            h.innerHTML = `<div>Pos</div><div></div><div>Name</div><div style="text-align:center">Win</div><div style="text-align:center">Pod</div><div style="text-align:center">DNF</div><div style="text-align:right">Pts</div>`;
+            h.innerHTML = `<div>Pos</div><div></div><div>Name</div><div style="text-align:center">Pole</div><div style="text-align:center">Win</div><div style="text-align:center">Pod</div><div style="text-align:center">DNF</div><div style="text-align:right">Pts</div>`;
         } else {
             h.className = "header-row row-stats";
-            h.innerHTML = `<div>Pos</div><div></div><div>Team</div><div style="text-align:center">Win</div><div style="text-align:center">Pod</div><div style="text-align:center">DNF</div><div style="text-align:right">Pts</div>`;
+            h.innerHTML = `<div>Pos</div><div></div><div>Team</div><div style="text-align:center">Pole</div><div style="text-align:center">Win</div><div style="text-align:center">Pod</div><div style="text-align:center">DNF</div><div style="text-align:right">Pts</div>`;
         }
 
         if(mode === 'season') this.renderSeasonTable();
@@ -925,6 +984,7 @@ const UI = {
                 <div style="font-weight:bold; color:#fff;">${i+1}</div>
                 <div class="team-strip" style="background:${team.color}"></div>
                 <div>${d.name} <span style="color:#666; font-size:0.8em">${team.name}</span></div>
+                <div class="info-cell stat-pole">${d.poles}</div>
                 <div class="info-cell stat-win">${d.wins}</div>
                 <div class="info-cell stat-pod">${d.podiums}</div>
                 <div class="info-cell stat-dnf">${d.dnfs}</div>
@@ -946,6 +1006,7 @@ const UI = {
                 <div style="font-weight:bold; color:#fff;">${i+1}</div>
                 <div class="team-strip" style="background:${t.color}"></div>
                 <div style="font-weight:bold;">${t.name}</div>
+                <div class="info-cell stat-pole">${t.poles}</div>
                 <div class="info-cell stat-win">${t.wins}</div>
                 <div class="info-cell stat-pod">${t.podiums}</div>
                 <div class="info-cell stat-dnf">${t.dnfs}</div>
@@ -1014,6 +1075,75 @@ const UI = {
             `;
             box.appendChild(card);
         });
+    },
+
+    openCalendarEditor: function() {
+        window.editCalendar = JSON.parse(JSON.stringify(TRACK_CALENDAR));
+        this.renderCalendarEditor();
+        document.getElementById('modal-calendar').style.display = 'flex';
+    },
+
+    renderCalendarEditor: function() {
+        let box = document.getElementById('calendar-content');
+        box.innerHTML = '';
+        
+        window.editCalendar.forEach((track, i) => {
+            let row = document.createElement('div');
+            row.className = 'calendar-row';
+            row.innerHTML = `
+                <span style="color:#888; font-size:0.8em;">${i+1}</span>
+                <input type="text" value="${track.name}" onchange="window.editCalendar[${i}].name = this.value" placeholder="Name">
+                <input type="number" value="${track.laps}" style="width:60px" onchange="window.editCalendar[${i}].laps = parseInt(this.value)">
+                <input type="number" value="${track.time}" style="width:60px" onchange="window.editCalendar[${i}].time = parseInt(this.value)">
+                <label style="justify-content:center"><input type="checkbox" ${track.sprint ? 'checked' : ''} onchange="window.editCalendar[${i}].sprint = this.checked"></label>
+                <div style="display:flex; gap:2px;">
+                    <button class="btn-main" style="padding:2px 8px; font-size:0.8em;" onclick="CalendarEditor.moveUp(${i})">↑</button>
+                    <button class="btn-main" style="padding:2px 8px; font-size:0.8em;" onclick="CalendarEditor.moveDown(${i})">↓</button>
+                </div>
+                <button class="btn-main" style="background:#cc0000; padding:2px 5px;" onclick="CalendarEditor.removeTrack(${i})">X</button>
+            `;
+            box.appendChild(row);
+        });
+    }
+};
+
+const CalendarEditor = {
+    open: function() {
+        UI.openCalendarEditor();
+    },
+    addTrack: function() {
+        window.editCalendar.push({ name: "New GP", laps: 50, time: 85, sprint: false });
+        UI.renderCalendarEditor();
+    },
+    removeTrack: function(idx) {
+        if (window.editCalendar.length <= 1) return alert("Min 1 Track");
+        window.editCalendar.splice(idx, 1);
+        UI.renderCalendarEditor();
+    },
+    moveUp: function(idx) {
+        if (idx === 0) return;
+        [window.editCalendar[idx-1], window.editCalendar[idx]] = [window.editCalendar[idx], window.editCalendar[idx-1]];
+        UI.renderCalendarEditor();
+    },
+    moveDown: function(idx) {
+        if (idx === window.editCalendar.length - 1) return;
+        [window.editCalendar[idx+1], window.editCalendar[idx]] = [window.editCalendar[idx], window.editCalendar[idx+1]];
+        UI.renderCalendarEditor();
+    },
+    save: function() {
+        TRACK_CALENDAR = JSON.parse(JSON.stringify(window.editCalendar));
+        UI.closeModal('modal-calendar');
+        // Refresh Current if in Champ
+        if(State.mode === 'CHAMP') {
+            let idx = (ChampState.round - 1) % TRACK_CALENDAR.length;
+            let t = TRACK_CALENDAR[idx];
+            document.getElementById('inp-track').value = t.name;
+            document.getElementById('inp-laps').value = t.laps;
+            document.getElementById('inp-time').value = t.time;
+            document.getElementById('chk-sprint-weekend').checked = t.sprint;
+            Game.toggleSprintWeekend(); // Refresh UI state
+        }
+        UI.log("Calendar updated.", "type-sys");
     }
 };
 
@@ -1021,9 +1151,9 @@ const Editor = {
     addTeam: function() {
         if(window.editTeams.length >= 12) return alert("Max 12 Teams");
         let id = window.editTeams.length;
-        window.editTeams.push({ name: "New Team", color: "#ffffff", perf: 80, pts: 0, wins: 0, podiums: 0, dnfs: 0 });
-        window.editDrivers.push({ name: "Driver A", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 });
-        window.editDrivers.push({ name: "Driver B", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, dnfs: 0 });
+        window.editTeams.push({ name: "New Team", color: "#ffffff", perf: 80, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 });
+        window.editDrivers.push({ name: "Driver A", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 });
+        window.editDrivers.push({ name: "Driver B", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 });
         UI.renderEditor();
     },
     removeTeam: function(idx) {
