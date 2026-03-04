@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>F1 Race Simulator v3.2</title>
+    <title>F1 Race Simulator v3.3</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -184,6 +184,14 @@
         .adv-slider { width: 100%; margin: 5px 0; }
         .adv-label { display: flex; justify-content: space-between; font-size: 0.8em; color: #aaa; margin-top: 10px;}
 
+        .clickable-name { cursor: pointer; transition: color 0.2s; }
+        .clickable-name:hover { color: var(--accent-color); }
+
+        .stat-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 0.95em;
+            background: #25252b; padding: 15px; border-radius: 6px; border: 1px solid #333;
+        }
+
         @media (max-width: 600px) {
             .team-edit-header, .driver-edit-row { grid-template-columns: 1fr; gap: 5px; }
             .setup-row { grid-template-columns: 1fr; }
@@ -193,14 +201,15 @@
             .calendar-row > input[type="text"] { grid-column: span 1; }
             h1 { font-size: 1.5em; }
             #status-bar { flex-direction: column; text-align: center; }
+            .stat-grid { grid-template-columns: 1fr; }
         }
 
     </style>
 </head>
 <body>
 
-    <h1>F1 Race Simulator <span style="color:var(--accent-color)">3.2</span></h1>
-    <div class="subtitle">Gemini + some tweaks by retro58</div>
+    <h1>F1 Race Simulator <span style="color:var(--accent-color)">3.3</span></h1>
+    <div class="subtitle">Complete Season Management & Race Simulation</div>
 
     <!-- Status Bar -->
     <div style="width: 100%; max-width: 1600px;">
@@ -334,13 +343,19 @@
         <div class="modal-box modal-small">
             <h3 style="margin-top:0">Advanced Simulation Config</h3>
             
+            <div class="adv-label"><span>Qualifying Chaos (Variance)</span><span id="val-qualiChaos">1.5</span></div>
+            <input type="range" class="adv-slider" min="0.1" max="5.0" step="0.1" value="1.5" oninput="Config.update('qualiChaos', this.value)">
+
+            <div class="adv-label"><span>Leader Advantage / Dirty Air (s)</span><span id="val-leaderAdv">0.20</span></div>
+            <input type="range" class="adv-slider" min="0" max="1.0" step="0.05" value="0.2" oninput="Config.update('leaderAdv', this.value)">
+            
             <div class="adv-label"><span>Driver Skill Weight</span><span id="val-skill">2.0</span></div>
             <input type="range" class="adv-slider" min="0" max="5" step="0.1" value="2.0" oninput="Config.update('skill', this.value)">
             
             <div class="adv-label"><span>Car Performance Weight</span><span id="val-car">1.5</span></div>
             <input type="range" class="adv-slider" min="0" max="5" step="0.1" value="1.5" oninput="Config.update('car', this.value)">
 
-            <div class="adv-label"><span>Chaos Factor (Variance)</span><span id="val-chaos">2.0</span></div>
+            <div class="adv-label"><span>Race Chaos Factor (Variance)</span><span id="val-chaos">2.0</span></div>
             <input type="range" class="adv-slider" min="0" max="5" step="0.1" value="2.0" oninput="Config.update('chaos', this.value)">
 
             <div class="adv-label"><span>Tire Degradation Rate</span><span id="val-tire">0.08</span></div>
@@ -360,7 +375,7 @@
         <div class="modal-box modal-small">
             <h3 style="margin-top:0">New Championship</h3>
             <label>Number of Rounds (from Calendar)</label>
-            <input type="number" id="season-rounds-input" value="20" min="1" max="99" style="margin-bottom:20px;">
+            <input type="number" id="season-rounds-input" value="24" min="1" max="99" style="margin-bottom:20px;">
             <div style="display:flex; gap:10px;">
                 <button class="btn-main" onclick="UI.closeModal('modal-season')">Cancel</button>
                 <button class="btn-race" onclick="Game.initChampionship()">Start</button>
@@ -368,10 +383,40 @@
         </div>
     </div>
 
+    <!-- DRIVER STATS MODAL -->
+    <div id="modal-driver" class="modal-overlay">
+        <div class="modal-box modal-small" style="text-align:left; max-width:400px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #444; padding-bottom:10px; margin-bottom:15px;">
+                <h3 id="ds-name" style="margin:0; font-size:1.4em;">Driver Name</h3>
+                <div id="ds-team-color" style="width:24px; height:24px; border-radius:4px;"></div>
+            </div>
+            <div style="color:#aaa; font-size:1em; margin-bottom:15px; font-weight:bold;" id="ds-team-name">Team Name</div>
+
+            <div class="stat-grid">
+                <div><span style="color:#888; font-size:0.8em; display:block;">Points</span> <span id="ds-pts" style="font-size:1.3em; font-weight:bold; color:gold;"></span></div>
+                <div><span style="color:#888; font-size:0.8em; display:block;">Rating / Cons</span> <span id="ds-ratecons" style="font-size:1.2em; font-weight:bold;"></span></div>
+                
+                <div><span style="color:#888; font-size:0.8em; display:block;">Pole Positions</span> <span id="ds-poles" style="font-size:1.2em; font-weight:bold; color:var(--quali-color);"></span></div>
+                <div><span style="color:#888; font-size:0.8em; display:block;">Podiums</span> <span id="ds-podiums" style="font-size:1.2em; font-weight:bold;"></span></div>
+                
+                <div><span style="color:#888; font-size:0.8em; display:block;">Feature Wins</span> <span id="ds-wins" style="font-size:1.2em; font-weight:bold; color:var(--success-color);"></span></div>
+                <div><span style="color:#888; font-size:0.8em; display:block;">Sprint Wins</span> <span id="ds-sprints" style="font-size:1.2em; font-weight:bold; color:var(--sprint-color);"></span></div>
+                
+                <div><span style="color:#888; font-size:0.8em; display:block;">DNFs</span> <span id="ds-dnfs" style="font-size:1.2em; font-weight:bold; color:#ff4444;"></span></div>
+                <div><span style="color:#888; font-size:0.8em; display:block;">Best Finish</span> <span id="ds-bestfinish" style="font-size:1.2em; font-weight:bold; color:#fff;"></span></div>
+                <div><span style="color:#888; font-size:0.8em; display:block;">Best Start</span> <span id="ds-bestquali" style="font-size:1.2em; font-weight:bold; color:#fff;"></span></div>
+            </div>
+
+            <div style="margin-top:20px; text-align:right;">
+                <button class="btn-main" onclick="UI.closeModal('modal-driver')" style="width:100%;">Close</button>
+            </div>
+        </div>
+    </div>
+
 <script>
 /**
- * F1 SIMULATOR CORE V3.1
- * Features: Detailed Calendar with Laps, Time, Sprint config per track.
+ * F1 SIMULATOR CORE V3.3
+ * Features: Driver Stats Modal, Quali Chaos Settings, Leader Dirty Air Advantage
  */
 
 // --- CONFIG & DATA ---
@@ -408,9 +453,11 @@ const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
 const SimConfig = {
     skillWeight: 2.0,
     carWeight: 1.5,
-    chaosFactor: 2.0, // Variance base
-    tireWear: 0.08, // sec lost per lap age
-    crashRate: 0.05 // base chance
+    chaosFactor: 2.0, 
+    tireWear: 0.08, 
+    crashRate: 0.05,
+    qualiChaos: 1.5,      // New: Controls unpredictability of qualifying
+    leaderAdvantage: 0.20 // New: Buff to leader lap time (Dirty air for followers)
 };
 
 const Config = {
@@ -422,6 +469,8 @@ const Config = {
             case 'chaos': SimConfig.chaosFactor = val; break;
             case 'tire': SimConfig.tireWear = val; break;
             case 'crash': SimConfig.crashRate = val; break;
+            case 'qualiChaos': SimConfig.qualiChaos = val; break;
+            case 'leaderAdv': SimConfig.leaderAdvantage = val; break;
         }
         document.getElementById(`val-${key}`).innerText = val;
     }
@@ -429,49 +478,51 @@ const Config = {
 
 // Master Data
 let TEAMS = [
-    { name: "Red Bull", color: "#0600ef", perf: 98, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "Ferrari", color: "#dc0000", perf: 96, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "Mercedes", color: "#00d2be", perf: 95, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "McLaren", color: "#ff8700", perf: 97, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "Aston Martin", color: "#006f62", perf: 92, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "Alpine", color: "#0090ff", perf: 88, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "Williams", color: "#005aff", perf: 85, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "RB", color: "#131370", perf: 86, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "Audi", color: "#c94b57", perf: 82, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "Haas", color: "#b6babd", perf: 84, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "Cadillac", color: "#f7ff57", perf: 80, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 }
+    { name: "Red Bull", color: "#0600ef", perf: 87, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "Ferrari", color: "#dc0000", perf: 90, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "Mercedes", color: "#00d2be", perf: 89, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "McLaren", color: "#ff8700", perf: 88, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "Aston Martin", color: "#006f62", perf: 50, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "Alpine", color: "#0090ff", perf: 85, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "Williams", color: "#005aff", perf: 83, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "RB", color: "#131370", perf: 84, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "Audi", color: "#c94b57", perf: 84, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "Haas", color: "#b6babd", perf: 86, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "Cadillac", color: "#f7ff57", perf: 80, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 }
 ];
 
 let DRIVERS = [
-    { name: "M. Verstappen", team: 0, rate: 95, cons: 9, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "I. Hadjar", team: 0, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "C. Leclerc", team: 1, rate: 90, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "L. Hamilton", team: 1, rate: 85, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "G. Russell", team: 2, rate: 94, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "K. Antonelli", team: 2, rate: 85, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "L. Norris", team: 3, rate: 92, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "O. Piastri", team: 3, rate: 90, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "F. Alonso", team: 4, rate: 87, cons: 9, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "L. Stroll", team: 4, rate: 81, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "P. Gasly", team: 5, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "F. Colapinto", team: 5, rate: 80, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "A. Albon", team: 6, rate: 85, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "C. Sainz", team: 6, rate: 88, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "A. Lindblad", team: 7, rate: 75, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "L. Lawson", team: 7, rate: 82, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "N. Hulkenberg", team: 8, rate: 86, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "G. Bortoleto", team: 8, rate: 82, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "E. Ocon", team: 9, rate: 83, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "O. Bearman", team: 9, rate: 84, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "V. Bottas", team: 10, rate: 85, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 },
-    { name: "S. Perez", team: 10, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 }
+    { name: "M. Verstappen", team: 0, rate: 90, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "I. Hadjar", team: 0, rate: 84, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "C. Leclerc", team: 1, rate: 90, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "L. Hamilton", team: 1, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "G. Russell", team: 2, rate: 90, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "K. Antonelli", team: 2, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "L. Norris", team: 3, rate: 89, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "O. Piastri", team: 3, rate: 87, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "F. Alonso", team: 4, rate: 85, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "L. Stroll", team: 4, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "P. Gasly", team: 5, rate: 84, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "F. Colapinto", team: 5, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "A. Albon", team: 6, rate: 84, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "C. Sainz", team: 6, rate: 85, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "A. Lindblad", team: 7, rate: 75, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "L. Lawson", team: 7, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "N. Hulkenberg", team: 8, rate: 84, cons: 8, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "G. Bortoleto", team: 8, rate: 81, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "E. Ocon", team: 9, rate: 84, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "O. Bearman", team: 9, rate: 83, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "V. Bottas", team: 10, rate: 82, cons: 6, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 },
+    { name: "S. Perez", team: 10, rate: 83, cons: 7, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 }
 ];
 
 let ChampState = { 
     active: false, 
     round: 1, 
     maxRounds: 24, 
-    saved: false
+    saved: false,
+    baseLaps: 53,
+    baseTime: 82
 };
 
 const State = {
@@ -516,6 +567,10 @@ const Game = {
         let rounds = parseInt(roundsInput);
         if(isNaN(rounds) || rounds < 1) rounds = TRACK_CALENDAR.length;
 
+        // SAVE DEFAULT SETTINGS
+        ChampState.baseLaps = parseInt(document.getElementById('inp-laps').value) || 53;
+        ChampState.baseTime = parseFloat(document.getElementById('inp-time').value) || 82;
+
         UI.closeModal('modal-season');
 
         ChampState.active = true;
@@ -524,8 +579,8 @@ const Game = {
         ChampState.saved = false;
         
         // Reset all stats
-        DRIVERS.forEach(d => { d.pts = 0; d.wins = 0; d.podiums = 0; d.poles = 0; d.dnfs = 0; });
-        TEAMS.forEach(t => { t.pts = 0; t.wins = 0; t.podiums = 0; t.poles = 0; t.dnfs = 0; });
+        DRIVERS.forEach(d => { d.pts = 0; d.wins = 0; d.podiums = 0; d.poles = 0; d.sprintWins = 0; d.dnfs = 0; d.bestFinish = 99; d.bestQuali = 99; });
+        TEAMS.forEach(t => { t.pts = 0; t.wins = 0; t.podiums = 0; t.poles = 0; t.sprintWins = 0; t.dnfs = 0; t.bestFinish = 99; t.bestQuali = 99; });
 
         State.mode = 'CHAMP';
         this.setupRound();
@@ -589,7 +644,6 @@ const Game = {
             document.getElementById('inp-time').value = trackObj.time;
             document.getElementById('chk-sprint-weekend').checked = trackObj.sprint;
         } else {
-            // Single Race: Keep current input values or reset defaults? Keep current.
             trackName = document.getElementById('inp-track').value;
         }
         
@@ -625,7 +679,7 @@ const Game = {
 
     toggleSprintWeekend: function() {
         State.hasSprint = document.getElementById('chk-sprint-weekend').checked;
-        Game.setupRound(); // Refresh buttons
+        Game.setupRound();
     },
 
     runQualifying: function() {
@@ -649,7 +703,11 @@ const Game = {
             let team = TEAMS[d.team];
             if(!team) return;
             
-            let varianceRange = 1.6 - (d.cons * 0.1); 
+            // New Adjustable Quali Chaos
+            let baseVar = SimConfig.qualiChaos;
+            let varianceRange = baseVar - (d.cons * (baseVar * 0.1)); // High consistency reduces variance
+            if (varianceRange < 0.1) varianceRange = 0.1;
+            
             let variance = (Math.random() * varianceRange) - (varianceRange * 0.5);
             let skill = (d.rate * SimConfig.skillWeight) + (team.perf * SimConfig.carWeight);
             let skillNorm = skill / (100 * (SimConfig.skillWeight + SimConfig.carWeight));
@@ -658,6 +716,13 @@ const Game = {
         });
 
         State.grid.sort((a,b) => a.qTime - b.qTime);
+
+        // Track Best Qualifying positions
+        State.grid.forEach((d, index) => {
+            let pos = index + 1;
+            if(pos < DRIVERS[d.id].bestQuali) DRIVERS[d.id].bestQuali = pos;
+            if(pos < TEAMS[DRIVERS[d.id].team].bestQuali) TEAMS[DRIVERS[d.id].team].bestQuali = pos;
+        });
 
         UI.updateStandings('QUALI');
         let pole = State.grid[0];
@@ -686,7 +751,6 @@ const Game = {
 
     startSprint: function() {
         State.phase = 'SPRINT';
-        // Auto-calc laps from current input
         let totalLaps = parseInt(document.getElementById('inp-laps').value) || 53;
         State.laps = Math.max(5, Math.floor(totalLaps / 3)); 
         
@@ -712,8 +776,11 @@ const Game = {
 
     startRace: function() {
         State.phase = 'RACE';
-        // Feature Race Laps
-        State.laps = parseInt(document.getElementById('inp-laps').value) || 53;
+        if(State.mode === 'CHAMP') {
+             State.laps = ChampState.baseLaps;
+        } else {
+             State.laps = parseInt(document.getElementById('inp-laps').value) || 53;
+        }
         
         State.currentLap = 0;
         State.sessionBest = 9999;
@@ -751,7 +818,7 @@ const Game = {
         let scMult = parseFloat(document.getElementById('inp-sc').value);
         let avgTime = parseFloat(document.getElementById('inp-time').value);
 
-        State.grid.forEach(d => {
+        State.grid.forEach((d, index) => {
             if(d.status !== 'RUNNING') return;
 
             let team = TEAMS[d.team];
@@ -764,6 +831,12 @@ const Game = {
             let variance = (Math.random() * varRange); 
 
             let lapTime = (avgTime + variance) - (skillNorm * 2.5) + tireDeg;
+
+            // NEW: LEADER ADVANTAGE (DIRTY AIR EFFECT)
+            // If the driver is currently in P1 (index 0), they get a buff to maintain lead.
+            if (index === 0) {
+                lapTime -= SimConfig.leaderAdvantage;
+            }
             
             let rng = Math.random() * 1000;
             let mistakeProb = (11 - d.cons) * SimConfig.crashRate * scMult; 
@@ -791,6 +864,13 @@ const Game = {
                 State.sessionBest = lapTime;
                 UI.log(`Fastest Lap: ${d.name} (${UI.fmtTime(lapTime)})`, "type-fast");
             }
+        });
+
+        // Ensure grid is sorted by rTime at the end of the tick so index 0 is always the true leader
+        State.grid.sort((a,b) => {
+            if(a.status === 'DNF') return 1;
+            if(b.status === 'DNF') return -1;
+            return a.rTime - b.rTime;
         });
     },
 
@@ -876,6 +956,10 @@ const Game = {
             TEAMS[DRIVERS[r.id].team].pts += pts;
 
             if(label === "Race" && r.status === 'RUNNING') {
+                let pos = i + 1;
+                if(pos < DRIVERS[r.id].bestFinish) DRIVERS[r.id].bestFinish = pos;
+                if(pos < TEAMS[DRIVERS[r.id].team].bestFinish) TEAMS[DRIVERS[r.id].team].bestFinish = pos;
+
                 if(i === 0) {
                     DRIVERS[r.id].wins++;
                     TEAMS[DRIVERS[r.id].team].wins++;
@@ -883,6 +967,13 @@ const Game = {
                 if(i < 3) {
                     DRIVERS[r.id].podiums++;
                     TEAMS[DRIVERS[r.id].team].podiums++;
+                }
+            }
+            
+            if(label === "Sprint" && r.status === 'RUNNING') {
+                if(i === 0) {
+                    DRIVERS[r.id].sprintWins++;
+                    TEAMS[DRIVERS[r.id].team].sprintWins++;
                 }
             }
         });
@@ -906,6 +997,27 @@ const UI = {
     openSeasonModal: function() { document.getElementById('modal-season').style.display = 'flex'; },
     openAdvanced: function() { document.getElementById('modal-advanced').style.display = 'flex'; },
     closeModal: function(id) { document.getElementById(id).style.display = 'none'; },
+
+    openDriverStats: function(id) {
+        let d = DRIVERS[id];
+        let t = TEAMS[d.team];
+        
+        document.getElementById('ds-name').innerText = d.name;
+        document.getElementById('ds-team-name').innerText = t.name;
+        document.getElementById('ds-team-color').style.background = t.color;
+        
+        document.getElementById('ds-pts').innerText = d.pts;
+        document.getElementById('ds-ratecons').innerText = d.rate + " / " + d.cons;
+        document.getElementById('ds-poles').innerText = d.poles;
+        document.getElementById('ds-podiums').innerText = d.podiums;
+        document.getElementById('ds-wins').innerText = d.wins;
+        document.getElementById('ds-sprints').innerText = d.sprintWins;
+        document.getElementById('ds-dnfs').innerText = d.dnfs;
+        document.getElementById('ds-bestfinish').innerText = d.bestFinish === 99 ? '-' : 'P' + d.bestFinish;
+        document.getElementById('ds-bestquali').innerText = d.bestQuali === 99 ? '-' : 'P' + d.bestQuali;
+        
+        document.getElementById('modal-driver').style.display = 'flex';
+    },
 
     switchTab: function(mode) {
         this.view = mode;
@@ -934,6 +1046,7 @@ const UI = {
     updateStandings: function(context) {
         if(this.view !== 'race') return;
         let list = [...State.grid];
+        // Grid is already sorted organically, but just in case:
         if(context === 'RACE') {
             list.sort((a,b) => {
                 if(a.status === 'DNF') return 1;
@@ -964,7 +1077,7 @@ const UI = {
             row.innerHTML = `
                 <div style="font-weight:bold; color:#fff;">${i+1}</div>
                 <div class="team-strip" style="background:${team.color}"></div>
-                <div>${d.name} <span style="color:#666; font-size:0.8em">${team.name}</span></div>
+                <div class="clickable-name" onclick="UI.openDriverStats(${d.id})">${d.name} <span style="color:#666; font-size:0.8em">${team.name}</span></div>
                 <div class="info-cell ${infoClass}">${infoTxt}</div>
                 <div class="data-cell">${displayTime}</div>
             `;
@@ -975,7 +1088,7 @@ const UI = {
     renderSeasonTable: function() {
         let container = document.getElementById('standings-body');
         container.innerHTML = '';
-        let drivers = [...DRIVERS].sort((a,b) => b.pts - a.pts);
+        let drivers = [...DRIVERS].map((d,i) => ({...d, id:i})).sort((a,b) => b.pts - a.pts);
         
         drivers.forEach((d, i) => {
             let team = TEAMS[d.team];
@@ -984,7 +1097,7 @@ const UI = {
             row.innerHTML = `
                 <div style="font-weight:bold; color:#fff;">${i+1}</div>
                 <div class="team-strip" style="background:${team.color}"></div>
-                <div>${d.name} <span style="color:#666; font-size:0.8em">${team.name}</span></div>
+                <div class="clickable-name" onclick="UI.openDriverStats(${d.id})">${d.name} <span style="color:#666; font-size:0.8em">${team.name}</span></div>
                 <div class="info-cell stat-pole">${d.poles}</div>
                 <div class="info-cell stat-win">${d.wins}</div>
                 <div class="info-cell stat-pod">${d.podiums}</div>
@@ -1134,7 +1247,6 @@ const CalendarEditor = {
     save: function() {
         TRACK_CALENDAR = JSON.parse(JSON.stringify(window.editCalendar));
         UI.closeModal('modal-calendar');
-        // Refresh Current if in Champ
         if(State.mode === 'CHAMP') {
             let idx = (ChampState.round - 1) % TRACK_CALENDAR.length;
             let t = TRACK_CALENDAR[idx];
@@ -1142,7 +1254,7 @@ const CalendarEditor = {
             document.getElementById('inp-laps').value = t.laps;
             document.getElementById('inp-time').value = t.time;
             document.getElementById('chk-sprint-weekend').checked = t.sprint;
-            Game.toggleSprintWeekend(); // Refresh UI state
+            Game.toggleSprintWeekend(); 
         }
         UI.log("Calendar updated.", "type-sys");
     }
@@ -1152,9 +1264,9 @@ const Editor = {
     addTeam: function() {
         if(window.editTeams.length >= 12) return alert("Max 12 Teams");
         let id = window.editTeams.length;
-        window.editTeams.push({ name: "New Team", color: "#ffffff", perf: 80, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 });
-        window.editDrivers.push({ name: "Driver A", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 });
-        window.editDrivers.push({ name: "Driver B", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, dnfs: 0 });
+        window.editTeams.push({ name: "New Team", color: "#ffffff", perf: 80, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 });
+        window.editDrivers.push({ name: "Driver A", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 });
+        window.editDrivers.push({ name: "Driver B", team: id, rate: 80, cons: 5, pts: 0, wins: 0, podiums: 0, poles: 0, sprintWins: 0, dnfs: 0, bestFinish: 99, bestQuali: 99 });
         UI.renderEditor();
     },
     removeTeam: function(idx) {
